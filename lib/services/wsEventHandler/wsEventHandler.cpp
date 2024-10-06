@@ -54,7 +54,7 @@ void broadcastPage(String page)
   }
 }
 
-void broadcastSixthPageInfo(String test_type, String sensor_rating, String target_force)
+void broadcastSixthPageInfo(String test_type, String sensor_rating, String target_force, String target_extension)
 {
 
   StaticJsonDocument<BUFFER_SIZE> jsonToSend;
@@ -62,6 +62,7 @@ void broadcastSixthPageInfo(String test_type, String sensor_rating, String targe
   jsonToSend["test_type"] = test_type;
   jsonToSend["sensor_rating_kg"] = sensor_rating;
   jsonToSend["target_force"] = target_force;
+  jsonToSend["target_extension"] = target_extension;
   jsonToSend["read_me_ish"] = "Multipy the sensor_rating_kg by 9.81";
 
   // Serialize the JSON data into the dataBuffer

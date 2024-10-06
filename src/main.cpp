@@ -1,21 +1,17 @@
 // external library
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <EEPROM.h>
+#include <ESPAsyncWebServer.h>
 #include <Keypad.h>
+#include <LittleFS.h>
 #include <SPI.h>
 #include <U8g2lib.h>
-#include <Wire.h>
 #include <WiFi.h>
-#include <EEPROM.h>
-
-#include <LittleFS.h>
-#include <ESPAsyncWebServer.h>
+#include <Wire.h>
 #include "wsEventHandler/wsEventHandler.h"
 
-#define FS LittleFS
-
 // custom library
-
 #include "first_page/first_page.h"
 #include "second_page/second_page.h"
 #include "third_page/third_page.h"
@@ -24,14 +20,13 @@
 #include "sixth_page/sixth_page.h"
 
 // Definitions
+#define FS LittleFS
 #define WIFI_SSID "abass"
 #define WIFI_PASSWORD "abcdefghij"
 #define EEPROM_SIZE 512
 #define RX_FROM_ARDUINO_NANO 23
 #define TX_FROM_ARDUINO_NANO 22
-
-// Allocate memory for sending JSON data
-#define BUFFER_SIZE 512
+#define BUFFER_SIZE 512 // Allocate memory for sending JSON data
 #define BUZZER_PIN 18
 
 enum SELECTED_TEST
@@ -49,6 +44,7 @@ enum CURRENT_PAGE
   FOURTH = 4,
   FIFTH = 5,
   FIFTH_ONE = 51,
+  FIFTH_TWO = 52,
   SIXTH = 6,
   SIXTH_ONE = 61,
   SEVENTH = 7
@@ -61,12 +57,14 @@ int LOADCELL_RATING_ADDRESS = 15;
 int SENSOR_RATING_ADDRESS = 50;
 int MAX_FORCE_ADDRESS = 100;
 int EMPTY_ADDRESS = 150;
+int TARGET_EXTENSION_ADDRESS = 250;
 
 int SELECTED_TEST_VALUE = 0;
 int SELECTED_PAGE = FIRST;
 String input_value = "";
 String SENSOR_RATING_IN_KG = "-1";
 String TARGET_FORCE = "-1";
+String TARGET_EXTENSION = "-1";
 int EMPTY;
 
 // Variable declarations/instantations
@@ -89,14 +87,13 @@ AsyncWebSocket websocket("/ws");
 unsigned long lastSentTime = 0;
 const unsigned long messageInterval = 1000; // Send every 100 ms
 
-void sendWebSocketMessage(String test_type, String sensor_rating, String target_force)
+void sendWebSocketMessage(String test_type, String sensor_rating, String target_force, String target_extension)
 {
   if (millis() - lastSentTime >= messageInterval)
   {
-    // if (webSocket.isConnected()) {
-    broadcastSixthPageInfo(test_type, sensor_rating, target_force);
 
-    // }
+    broadcastSixthPageInfo(test_type, sensor_rating, target_force, target_extension);
+
     lastSentTime = millis();
   }
 }
@@ -220,7 +217,8 @@ void setup()
     }else {
        jsonDoc["test_type"] = "";
     jsonDoc["sensor_rating"] = "";
-    jsonDoc["target_force"] = ""; // You can add any data you want to send
+    jsonDoc["target_force"] = ""; 
+    jsonDoc["target_extension"] = ""; 
     }
 
     // Serialize the JSON document to a string
@@ -255,7 +253,7 @@ void loop()
       input_value = SENSOR_RATING_IN_KG;
     }
 
-    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, "tension", SENSOR_RATING_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE);
+    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), SENSOR_RATING_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, "");
   }
   if (SELECTED_PAGE == FIFTH_ONE)
   {
@@ -265,14 +263,18 @@ void loop()
 
       input_value = TARGET_FORCE;
     }
-    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, "tension", MAX_FORCE_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE);
+    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), MAX_FORCE_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, TARGET_EXTENSION_ADDRESS, "");
   }
-  // broadcastData();
-  // if (Serial2.available())
-  // {
-  //   weightInNewtons = Serial2.parseFloat();
-  //   readCaliper = Serial2.parseFloat();
-  // }
+  if (SELECTED_PAGE == FIFTH_TWO)
+  {
+    if (TARGET_EXTENSION == "-1")
+    {
+      EEPROM.get(TARGET_EXTENSION_ADDRESS, TARGET_EXTENSION);
+
+      input_value = TARGET_EXTENSION;
+    }
+    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), TARGET_EXTENSION_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, EXTENSOMETER_RATING_IN_MM);
+  }
 
   if (SELECTED_PAGE == SIXTH)
   {
@@ -290,7 +292,7 @@ void loop()
       test = "torsion";
     }
 
-    sixth_page_ui(u8g2, key,test, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+    sixth_page_ui(u8g2, key, test, SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION, SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
   }
 
   if (SELECTED_PAGE == FOURTH)
@@ -299,7 +301,7 @@ void loop()
     EEPROM.get(SENSOR_RATING_ADDRESS, SENSOR_RATING_IN_KG);
     input_value = SENSOR_RATING_IN_KG;
   }
-  sendWebSocketMessage(selectedTest(), SENSOR_RATING_IN_KG, TARGET_FORCE);
+  sendWebSocketMessage(selectedTest(), SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION);
   if (key)
   {
     EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
@@ -310,23 +312,20 @@ void loop()
       if (key - '0' == FIRST)
       {
         EEPROM.put(SELECT_TEST_VALUE_ADDRESS, TENSION);
-        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
-
-        EEPROM.commit();
-        EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
-        EEPROM.get(SELECT_TEST_VALUE_ADDRESS, SELECTED_TEST_VALUE);
       }
+      else if (
+          key - '0' == SECOND)
+      {
+        EEPROM.put(SELECT_TEST_VALUE_ADDRESS, COMPRESSION);
+      }else if(key - '0' == THIRD){
+        EEPROM.put(SELECTED_TEST_VALUE, TORSION);
+      }
+
+      EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+
+      EEPROM.commit();
+      EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+      EEPROM.get(SELECT_TEST_VALUE_ADDRESS, SELECTED_TEST_VALUE);
     }
   }
-
-  // if()
-  // Serial.print("Selected test: ");
-  // Serial.println(SELECT_TEST_VALUE);
-
-  // EEPROM.put(SELECT_TEST_VALUE_ADDRESS, key - '0');
-  // EEPROM.commit();
-
-  // EEPROM.get(SELECT_TEST_VALUE_ADDRESS, SELECTED_TEST_VALUE);
-  // Serial.print("Selected test after saving: ");
-  // Serial.println(SELECTED_TEST_VALUE);
 }

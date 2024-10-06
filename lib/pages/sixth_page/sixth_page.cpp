@@ -2,6 +2,7 @@
 #include "wsEventHandler/wsEventHandler.h"
 #include "displayCenteredText/displayCenteredText.h"
 #include "formatForceValue/formatForceValue.h"
+#include "formatExtensometerValue/formatExtensometerValue.h"
 #define BUZZER_PIN 18
 #include "EEPROM.h"
 #include "types/status.h"
@@ -34,12 +35,12 @@ const char *statusToString(Status &status)
 }
 
 // function decalarations
-void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_rating, String target_force);
+void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_rating, String target_force, String target_extension);
 void handle_key_pressed(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, int current_page_address, int selected_page, String &target_force, String &sensor_rating, Status &current_status);
 void handle_broadcast(float force, float displacement, String target_force);
 void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement);
 void display_status_in_footer(U8G2_ST7920_128X64_F_SW_SPI u8g2, Status &status);
-void handle_current_status_logic(Status &current_status, String &target_force);
+void handle_current_status_logic(Status &current_status, String &target_force, String &target_extension);
 
 void process_serial_data(String data)
 {
@@ -77,10 +78,10 @@ void check_serial_data()
     }
 }
 
-void sixth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, String test, String &sensor_rating, String &target_force, int current_page_address, int selected_page)
+void sixth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, String test, String &sensor_rating, String &target_force, String &target_extension, int current_page_address, int selected_page)
 {
     handle_key_pressed(u8g2, key, current_page_address, selected_page, target_force, sensor_rating, current_status);
-    handle_current_status_logic(current_status, target_force);
+    handle_current_status_logic(current_status, target_force, target_extension);
     check_serial_data();
     // if (Serial2.available())
     // {
@@ -104,7 +105,7 @@ void sixth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, String test, Str
     displayCenteredTextAlongXAxis(u8g2, ("TEST TYPE: " + test).c_str(), 7);
 
     // jkl;j
-    box_with_white_background(u8g2, sensor_rating, target_force);
+    box_with_white_background(u8g2, sensor_rating, target_force, target_extension);
     display_force_displacement(u8g2, force, displacement);
 
     display_status_in_footer(u8g2, current_status);
@@ -112,7 +113,7 @@ void sixth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, String test, Str
     u8g2.sendBuffer();
 }
 
-void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_rating, String target_force)
+void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_rating, String target_force, String target_extension)
 {
     u8g2.setFontMode(1);
     u8g2.setDrawColor(1);
@@ -130,7 +131,20 @@ void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_r
     u8g2.drawStr(textSize + 4, 17, buffer);
 
     u8g2.setFont(u8g2_font_4x6_tf);
-    text = "TARGET FORCE=";
+    if (!target_force.isEmpty())
+    {
+
+        text = "TARGET FORCE=";
+    }
+    else if (!target_extension.isEmpty())
+    {
+
+        text = "TARGET EXTENSION=";
+    }
+    else
+    {
+        text = "TARGET FORCE=--   TARGET EXT=--";
+    }
     u8g2.drawStr(2, 27, text.c_str());
 
     textSize = u8g2.getStrWidth(text.c_str());
@@ -141,9 +155,15 @@ void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_r
         u8g2.setFont(u8g2_font_5x7_tf);
         u8g2.drawStr(textSize + 4, 27, buffer);
     }
+    else if (target_extension.length() > 0)
+    {
+        formatExtensometerValue(target_extension, buffer, sizeof(buffer));
+        u8g2.setFont(u8g2_font_5x7_tf);
+        u8g2.drawStr(textSize + 4, 27, buffer);
+    }
     else
     {
-        u8g2.drawStr(textSize + 4, 27, "-----");
+        // u8g2.drawStr(textSize + 4, 27, "-----");
     }
     u8g2.setFont(u8g2_font_5x7_tf);
 }
@@ -179,19 +199,24 @@ void handle_key_pressed(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, int current
 
     if (key == '#')
     {
-       
+
         if (current_status == NOT_STARTED)
         {
             current_status = STARTED;
             broadcastStatus(STARTED);
             temporary_force = -1;
-        } else if (current_status == STARTED)
+            digitalWrite(BUZZER_PIN, LOW);
+        }
+        else if (current_status == STARTED)
         {
             current_status = STOPPED;
+            digitalWrite(BUZZER_PIN, LOW);
             broadcastStatus(STOPPED);
-        }else if (current_status == STOPPED)
+        }
+        else if (current_status == STOPPED)
         {
             current_status = STARTED;
+            digitalWrite(BUZZER_PIN, LOW);
             broadcastStatus(STARTED);
         }
     }
@@ -238,7 +263,7 @@ void display_status_in_footer(U8G2_ST7920_128X64_F_SW_SPI u8g2, Status &status)
     u8g2.drawStr(x, u8g2.getDisplayHeight() - 2, displayText.c_str());
 }
 
-void handle_current_status_logic(Status &current_status, String &target_force)
+void handle_current_status_logic(Status &current_status, String &target_force, String &target_extension)
 {
 
     switch (current_status)
@@ -249,7 +274,7 @@ void handle_current_status_logic(Status &current_status, String &target_force)
     case STARTED:
         if (temporary_force != force || floor(temporary_displacement) != floor(displacement))
         {
-            if (target_force.isEmpty())
+            if (target_force.isEmpty() && target_extension.isEmpty())
 
             {
                 Serial.print("temporary_force  :  ");
@@ -265,12 +290,16 @@ void handle_current_status_logic(Status &current_status, String &target_force)
                 else
                 {
                     // Serial.println("notisEmpty");
+                    digitalWrite(BUZZER_PIN, HIGH);
                     current_status = STOPPED;
+
                     broadcastStatus(STOPPED);
                     temporary_force = -1;
+                    delay(5000);
+                    digitalWrite(BUZZER_PIN, LOW);
                 }
             }
-            else
+            else if (!target_force.isEmpty())
             {
                 Serial.print("target_force: ");
                 Serial.println(target_force);
@@ -282,8 +311,28 @@ void handle_current_status_logic(Status &current_status, String &target_force)
                 }
                 else
                 {
+                    digitalWrite(BUZZER_PIN, HIGH);
                     current_status = STOPPED;
                     broadcastStatus(STOPPED);
+                    delay(5000);
+                    digitalWrite(BUZZER_PIN, LOW);
+                }
+            }
+            else if (!target_extension.isEmpty())
+            {
+                if (abs(displacement) <= abs(target_extension.toFloat()))
+                {
+                    broadcast_reading(force, displacement);
+                    temporary_force = force;
+                    temporary_displacement = displacement;
+                }
+                else
+                {
+                    digitalWrite(BUZZER_PIN, HIGH);
+                    current_status = STOPPED;
+                    broadcastStatus(STOPPED);
+                    delay(5000);
+                    digitalWrite(BUZZER_PIN, LOW);
                 }
             }
         }

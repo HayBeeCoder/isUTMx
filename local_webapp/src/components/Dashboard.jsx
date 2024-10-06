@@ -50,6 +50,9 @@ const Dashboard = () => {
         if (dataFromServer["target_force"] == "-1") {
           dataFromServer["target_force"] = "----"
         }
+        if (dataFromServer["target_extension"] == "-1") {
+          dataFromServer["target_extension"] = "----"
+        }
 
         set_dashboard_info({ ...dashboard_info, ...dataFromServer })
       } else if (dataFromServer["type"] == "update") {

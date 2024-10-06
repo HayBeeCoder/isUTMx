@@ -12,7 +12,7 @@ from re import sub
 def renameReactAssets( source, target, env ):
     # Build the react web application
     # react_proj_dir = "react-websocket-client"
-    react_proj_dir = "website"
+    react_proj_dir = "local_webapp"
     os.chdir(react_proj_dir)
     print( '\nReact build: Starting the build process for the React webapp...\n' )
     

@@ -10,6 +10,7 @@ const Sidebar = ({status, dashboard_info}) => {
                 <DataCard title="Test type" value={dashboard_info["test_type"] || "--"} />
                 <DataCard title="Load Cell's Rating  (N)" value={dashboard_info["sensor_rating_kg"] || "--"} />
                 <DataCard title="Target Force (N)" value={dashboard_info["target_force"] || "--"} />
+                <DataCard title="Target Extension (N)" value={dashboard_info["target_extension"] || "--"} />
                 {/* <DataCard title="Original Length (mm)" value={data.originalLength} /> */}
 
             </div>
