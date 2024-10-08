@@ -87,15 +87,12 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 {
 
                     EEPROM.put(page_value_address, 4);
-                }
-
-                if (page == 51)
+                }else if (page == 51)
                 {
                     EEPROM.put(page_value_address, 5);
                     sensor_rating_in_kg = "-1";
                     targetForce = "-1";
-                }
-                if (page == 52)
+                }else if (page == 52)
                 {
                     EEPROM.put(page_value_address, 51);
                     targetForce = "-1";

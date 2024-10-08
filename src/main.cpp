@@ -26,7 +26,9 @@
 #define EEPROM_SIZE 512
 #define RX_FROM_ARDUINO_NANO 23
 #define TX_FROM_ARDUINO_NANO 22
-#define BUFFER_SIZE 512 // Allocate memory for sending JSON data
+#define RX_FROM_ATMEGA 21 // Custom RX pin (connected to ATmega TX)
+#define TX_FROM_ATMEGA 19 // Custom TX pin (connected to ATmega RX)
+#define BUFFER_SIZE 512   // Allocate memory for sending JSON data
 #define BUZZER_PIN 18
 
 enum SELECTED_TEST
@@ -115,6 +117,7 @@ String selectedTest()
 void setup()
 {
   Serial.begin(115200);
+  Serial1.begin(4800, SERIAL_8N1, RX_FROM_ATMEGA, TX_FROM_ATMEGA);
   Serial2.begin(4800, SERIAL_8N1, RX_FROM_ARDUINO_NANO, TX_FROM_ARDUINO_NANO);
 
   pinMode(BUZZER_PIN, OUTPUT);
@@ -291,7 +294,6 @@ void loop()
     {
       test = "torsion";
     }
-
     sixth_page_ui(u8g2, key, test, SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION, SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
   }
 
@@ -312,16 +314,19 @@ void loop()
       if (key - '0' == FIRST)
       {
         EEPROM.put(SELECT_TEST_VALUE_ADDRESS, TENSION);
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
       }
       else if (
           key - '0' == SECOND)
       {
         EEPROM.put(SELECT_TEST_VALUE_ADDRESS, COMPRESSION);
-      }else if(key - '0' == THIRD){
-        EEPROM.put(SELECTED_TEST_VALUE, TORSION);
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
       }
-
-      EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+      else if (key - '0' == THIRD)
+      {
+        EEPROM.put(SELECTED_TEST_VALUE, TORSION);
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+      }
 
       EEPROM.commit();
       EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);

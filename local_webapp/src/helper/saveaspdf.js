@@ -2,6 +2,12 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import autoTable from 'jspdf-autotable';
 import { BASE64ENCODEDFORMAT } from '../constants';
+import capitalize from './capitalize';
+
+const tests = {
+    tension: "Extension",
+    compression: "Compression "
+}
 
 const saveAsPDF = (tableData, test_type, sensor_rating, target_force, target_extension, pdf_name) => {
     const chart = document.getElementById("graph");
@@ -27,7 +33,7 @@ const saveAsPDF = (tableData, test_type, sensor_rating, target_force, target_ext
 
         pdf.setFontSize(12);
 
-        pdf.text(`Test type: ${test_type}`, 60, 60);
+        pdf.text(`Test type: ${capitalize(test_type)}`, 60, 60);
         pdf.text(`Sensor rating: ${sensor_rating / 9.81}kg = ${sensor_rating}N`, 60, 80);
         pdf.text(`Target force: ${target_force ? target_force : "-----"}N`, 60, 100);
         pdf.text(`Target extension: ${target_extension ? target_extension : "-----"}mm`, 60, 120);
@@ -48,7 +54,7 @@ const saveAsPDF = (tableData, test_type, sensor_rating, target_force, target_ext
 
 
         autoTable(pdf, {
-            head: [['Force', 'Extension']],
+            head: [['Force', tests[test_type]]],
             body: tableData.map(row => [row.force_in_newton, row.displacement_in_mm]),
             startY: 550,
             tableWidth: 500,
