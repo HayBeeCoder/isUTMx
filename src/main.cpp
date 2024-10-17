@@ -35,7 +35,7 @@ enum SELECTED_TEST
 {
   TENSION = 1,
   COMPRESSION = 2,
-  TORSION = 3
+  // TORSION = 3
 };
 
 enum CURRENT_PAGE
@@ -109,10 +109,10 @@ String selectedTest()
   {
     return "compression";
   }
-  else if (SELECTED_TEST_VALUE == TORSION)
-  {
-    return "torsion";
-  }
+  // else if (SELECTED_TEST_VALUE == TORSION)
+  // {
+  //   return "torsion";
+  // }
 }
 void setup()
 {
@@ -290,17 +290,17 @@ void loop()
     {
       test = "compression";
     }
-    else if (SELECTED_TEST_VALUE == TORSION)
-    {
-      test = "torsion";
-    }
+    // else if (SELECTED_TEST_VALUE == TORSION)
+    // {
+    //   test = "torsion";
+    // }
     sixth_page_ui(u8g2, key, test, SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION, SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
   }
 
   if (SELECTED_PAGE == FOURTH)
   {
     fourth_page_ui(u8g2, SELECTED_PAGE_ADDRESS, FOURTH);
-    EEPROM.get(SENSOR_RATING_ADDRESS, SENSOR_RATING_IN_KG);
+    EEPROM.get(SENSOR_RATING_ADDRESS, SENSOR_RATING_IN_KG);\
     input_value = SENSOR_RATING_IN_KG;
   }
   sendWebSocketMessage(selectedTest(), SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION);
@@ -322,11 +322,11 @@ void loop()
         EEPROM.put(SELECT_TEST_VALUE_ADDRESS, COMPRESSION);
         EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
       }
-      else if (key - '0' == THIRD)
-      {
-        EEPROM.put(SELECTED_TEST_VALUE, TORSION);
-        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
-      }
+      // else if (key - '0' == THIRD)
+      // {
+      //   EEPROM.put(SELECTED_TEST_VALUE, TORSION);
+      //   EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+      // }
 
       EEPROM.commit();
       EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
