@@ -40,7 +40,7 @@ const char *statusToString(Status &status)
 void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_rating, String target_force, String target_extension, String test);
 void handle_key_pressed(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, int current_page_address, int selected_page, String &target_force, String &sensor_rating, Status &current_status);
 void handle_broadcast(float force, float displacement, String target_force);
-void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement,String test);
+void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, String test);
 void display_status_in_footer(U8G2_ST7920_128X64_F_SW_SPI u8g2, Status &status);
 void handle_current_status_logic(Status &current_status, String &target_force, String &target_extension, char &key);
 
@@ -99,7 +99,7 @@ void sixth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, String &test, St
 
     // jkl;j
     box_with_white_background(u8g2, sensor_rating, target_force, target_extension, test);
-    display_force_displacement(u8g2, force, displacement,test);
+    display_force_displacement(u8g2, force, displacement, test);
 
     display_status_in_footer(u8g2, current_status);
 
@@ -144,7 +144,7 @@ void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_r
     if (target_force.length() > 0)
     {
         double target_force_to_display = target_force.toFloat();
-      
+
         if (test == "COMPRESSION")
         {
             target_force_to_display = target_force_to_display * -1;
@@ -230,12 +230,13 @@ void handle_broadcast(float force, float displacement, String target_force)
     ;
 }
 
-void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement,String test)
+void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, String test)
 {
     u8g2.setFont(u8g2_font_5x7_tf);
     u8g2.setCursor(0, 40);
     u8g2.print("FORCE = ");
-    if(test == "COMPRESSION"){
+    if (test == "COMPRESSION")
+    {
         force = force * -1;
     }
 
@@ -284,21 +285,22 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
             if (target_force.isEmpty() && target_extension.isEmpty())
 
             {
-                if (temporary_force <= force)
+                if (temporary_force > force && force == 0)
+                {
+                    broadcast_reading(force, displacement);
+
+                    current_status = STOPPED;
+                    broadcastStatus(STOPPED);
+                    Serial1.println("10");
+                    temporary_force = -1;
+                }
+                else
                 {
 
                     broadcast_reading(force, displacement);
                     Serial1.println("11");
                     temporary_force = force;
                     temporary_displacement = displacement;
-                }
-                else
-                {
-
-                    current_status = STOPPED;
-                    broadcastStatus(STOPPED);
-                    Serial1.println("10");
-                    temporary_force = -1;
                 }
             }
             else if (!target_force.isEmpty())
