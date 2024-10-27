@@ -3,7 +3,7 @@
 #include "wifi_connected.h"
 #include "wifi_disconnected.h"
 #define WIFI_PASSWORD "abcdefghij"
-#define WIFI_SSID "isutmx"
+#define WIFI_SSID "isutmxx"
 
 void check_wifi(U8G2_ST7920_128X64_F_SW_SPI u8g2)
 {

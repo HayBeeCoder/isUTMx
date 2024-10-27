@@ -21,7 +21,7 @@
 
 // Definitions
 #define FS LittleFS
-#define WIFI_SSID "abass"
+#define WIFI_SSID "isutmxx"
 #define WIFI_PASSWORD "abcdefghij"
 #define EEPROM_SIZE 512
 #define RX_FROM_ARDUINO_NANO 23
