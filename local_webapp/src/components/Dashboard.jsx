@@ -149,16 +149,22 @@ const Dashboard = () => {
 
                   </div>
 
-                  <div className={`flex gap-4 justify-end ${show_modal ? "hidden" : "block"}`}>
-                    <button className='px-5 py-2 hover:bg-black text-black hover:text-white rounded-xl text-sm hover:opacity-90 hover:scale-95 border-2 border-black' onClick={() => {
-                      // set_show_modal(true)
-                      // set_btn_action(PRINT)
-                      set_btn_action(PRINT)
-                      set_show_modal(true)
-                    }
-                    }>Print Result</button>
+                  {
 
-                  </div>
+                    !!test_info?.length ?
+
+
+                      <div className={`flex gap-4 justify-end ${show_modal ? "hidden" : "block"}`}>
+                        <button className='px-5 py-2 hover:bg-black text-black hover:text-white rounded-xl text-sm hover:opacity-90 hover:scale-95 border-2 border-black' onClick={() => {
+                          // set_show_modal(true)
+                          // set_btn_action(PRINT)
+                          set_btn_action(PRINT)
+                          set_show_modal(true)
+                        }
+                        }>Print Result</button>
+
+                      </div> : null
+                  }
 
 
 
