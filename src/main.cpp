@@ -11,6 +11,8 @@
 #include <Wire.h>
 #include "wsEventHandler/wsEventHandler.h"
 
+// This a new comment added
+
 // custom library
 #include "first_page/first_page.h"
 #include "second_page/second_page.h"
