@@ -11,8 +11,6 @@
 #include <Wire.h>
 #include "wsEventHandler/wsEventHandler.h"
 
-// This a new comment added
-
 // custom library
 #include "first_page/first_page.h"
 #include "second_page/second_page.h"
@@ -37,7 +35,7 @@ enum SELECTED_TEST
 {
   TENSION = 1,
   COMPRESSION = 2,
-  // TORSION = 3
+  TORSION = 3 // Torsion selection allowed
 };
 
 enum CURRENT_PAGE
@@ -49,6 +47,7 @@ enum CURRENT_PAGE
   FIFTH = 5,
   FIFTH_ONE = 51,
   FIFTH_TWO = 52,
+  FIFTH_THREE = 53, //Speed page 
   SIXTH = 6,
   SIXTH_ONE = 61,
   SEVENTH = 7
@@ -62,6 +61,7 @@ int SENSOR_RATING_ADDRESS = 50;
 int MAX_FORCE_ADDRESS = 100;
 int EMPTY_ADDRESS = 150;
 int TARGET_EXTENSION_ADDRESS = 250;
+int SPEED_ADDRESS = 300; // Added address for speed
 
 int SELECTED_TEST_VALUE = 0;
 int SELECTED_PAGE = FIRST;
@@ -69,6 +69,7 @@ String input_value = "";
 String SENSOR_RATING_IN_KG = "-1";
 String TARGET_FORCE = "-1";
 String TARGET_EXTENSION = "-1";
+String TARGET_SPEED = "-1"; // Added place holder for speed
 int EMPTY;
 
 // Variable declarations/instantations
@@ -111,11 +112,12 @@ String selectedTest()
   {
     return "compression";
   }
-  // else if (SELECTED_TEST_VALUE == TORSION)
-  // {
-  //   return "torsion";
-  // }
+  else if (SELECTED_TEST_VALUE == TORSION)
+  {
+    return "torsion";
+  } // Torsion handling
 }
+
 void setup()
 {
   Serial.begin(115200);
@@ -219,6 +221,10 @@ void setup()
     jsonDoc["test_type"] = selectedTest();
     jsonDoc["sensor_rating"] = SENSOR_RATING_IN_KG;
     jsonDoc["target_force"] = TARGET_FORCE; // You can add any data you want to send
+    if (SELECTED_TEST_VALUE == TORSION)
+    {
+      jsonDoc["angle"] = angle;
+    } // Added data to want to send (The angle will come from the Arduino nano)
     }else {
        jsonDoc["test_type"] = "";
     jsonDoc["sensor_rating"] = "";
@@ -258,7 +264,7 @@ void loop()
       input_value = SENSOR_RATING_IN_KG;
     }
 
-    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), SENSOR_RATING_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, "");
+    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), SENSOR_RATING_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, TARGET_SPEED, ""); // Add the speed argument 
   }
   if (SELECTED_PAGE == FIFTH_ONE)
   {
@@ -268,7 +274,7 @@ void loop()
 
       input_value = TARGET_FORCE;
     }
-    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), MAX_FORCE_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, TARGET_EXTENSION_ADDRESS, "");
+    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), MAX_FORCE_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, TARGET_EXTENSION_ADDRESS, TARGET_SPEED, "");
   }
   if (SELECTED_PAGE == FIFTH_TWO)
   {
@@ -278,8 +284,20 @@ void loop()
 
       input_value = TARGET_EXTENSION;
     }
-    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), TARGET_EXTENSION_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, EXTENSOMETER_RATING_IN_MM);
+    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), TARGET_EXTENSION_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, TARGET_SPEED, EXTENSOMETER_RATING_IN_MM);
   }
+
+  if (SELECTED_PAGE == FIFTH_THREE)
+  {
+    if (TARGET_SPEED == "-1")
+    {
+      EEPROM.get(SPEED_ADDRESS, TARGET_SPEED);
+      
+      input_value = TARGET_SPEED;
+    }
+    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), SPEED_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, TARGET_SPEED, "mm/min");
+  }
+  
 
   if (SELECTED_PAGE == SIXTH)
   {
@@ -292,10 +310,10 @@ void loop()
     {
       test = "compression";
     }
-    // else if (SELECTED_TEST_VALUE == TORSION)
-    // {
-    //   test = "torsion";
-    // }
+    else if (SELECTED_TEST_VALUE == TORSION)
+    {
+      test = "torsion";
+    }
     sixth_page_ui(u8g2, key, test, SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION, SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
   }
 
@@ -305,7 +323,9 @@ void loop()
     EEPROM.get(SENSOR_RATING_ADDRESS, SENSOR_RATING_IN_KG);\
     input_value = SENSOR_RATING_IN_KG;
   }
+
   sendWebSocketMessage(selectedTest(), SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION);
+
   if (key)
   {
     EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
@@ -317,22 +337,39 @@ void loop()
       {
         EEPROM.put(SELECT_TEST_VALUE_ADDRESS, TENSION);
         EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+        Serial2.println("tension"); // Send test type to Arduino Nano
       }
       else if (
           key - '0' == SECOND)
       {
         EEPROM.put(SELECT_TEST_VALUE_ADDRESS, COMPRESSION);
         EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+        Serial2.println("compression"); // Send test type to Arduino Nano
       }
-      // else if (key - '0' == THIRD)
-      // {
-      //   EEPROM.put(SELECTED_TEST_VALUE, TORSION);
-      //   EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
-      // }
+      else if (key - '0' == THIRD)
+      {
+        EEPROM.put(SELECTED_TEST_VALUE, TORSION);
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+        Serial2.println("torsion"); // Send test type to Arduino Nano
+      }
+      // Sent the test types to Arduino nano because i used it to select what load cell to use for measurement based on the test type
 
       EEPROM.commit();
       EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
       EEPROM.get(SELECT_TEST_VALUE_ADDRESS, SELECTED_TEST_VALUE);
     }
   }
+}
+
+// Adding this helper function to send test type (can be called from anywhere in case you need it)
+void sendTestType() {
+    if (SELECTED_TEST_VALUE == TENSION) {
+        Serial2.println("tension");
+    }
+    else if (SELECTED_TEST_VALUE == COMPRESSION) {
+        Serial2.println("compression");
+    }
+    else if (SELECTED_TEST_VALUE == TORSION) {
+        Serial2.println("torsion");
+    }
 }
