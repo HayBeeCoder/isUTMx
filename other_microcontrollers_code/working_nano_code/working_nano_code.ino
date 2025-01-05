@@ -50,7 +50,7 @@ float readCaliper();
 float tc_calibration_factor = -22.9926536;
 float torsion_calibration_factor = -7050; //-20.0
 TestType currentTest = NONE;
-initial_angle = 0.0;
+float initial_angle = 0.0;
 long zero_factor;
 char buf[20];
 unsigned long tmpTime;
