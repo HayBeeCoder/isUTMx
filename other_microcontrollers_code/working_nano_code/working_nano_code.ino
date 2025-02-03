@@ -222,9 +222,11 @@ void loop()
     mySerial.print(",");
     mySerial.print(displacement);
     mySerial.print(",");
-    mySerial.print(angle);
+    if(currentTest == TORSION){
+      mySerial.print(angle);
+    }
     mySerial.println(); // End the message with a newline
-        
+       
     // Debug output
     Serial.print("Force (N): ");
     Serial.print(force);
