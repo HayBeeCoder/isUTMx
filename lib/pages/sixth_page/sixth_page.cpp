@@ -15,6 +15,7 @@ float temporary_displacement = -1;
 char buffer[20];
 double force;
 float displacement;
+float angle = 0.0; // Additional global variable for angle
 int period = 5000;
 unsigned long time_now = 0;
 Status current_status = NOT_STARTED;
@@ -40,22 +41,28 @@ const char *statusToString(Status &status)
 void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_rating, String target_force, String target_extension, String test);
 void handle_key_pressed(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, int current_page_address, int selected_page, String &target_force, String &sensor_rating, Status &current_status);
 void handle_broadcast(float force, float displacement, String target_force);
-void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, String test);
+// void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, String test);
 void display_status_in_footer(U8G2_ST7920_128X64_F_SW_SPI u8g2, Status &status);
 void handle_current_status_logic(Status &current_status, String &target_force, String &target_extension, char &key);
+void display_measurements(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, float angle, String test)
+void broadcast_reading(float force, float displacement, float angle = 0.0);
+
 
 void process_serial2_data(String data)
 {
     // Process the incoming serial data
-    int commaIndex = data.indexOf(',');
+    int firstComma = data.indexOf(',');
+    int secondComma = data.indexOf(',', firstComma + 1)
 
-    if (commaIndex > 0)
+    if (firstComma > 0 && secondComma > 0)
     {
-        // Parse force and displacement values
-        force = abs(data.substring(0, commaIndex).toFloat());
-        displacement = data.substring(commaIndex + 1).toFloat();
+        // Parse force and displacement values and angle values
+        force = abs(data.substring(0, firstComma).toFloat());
+        displacement = data.substring(firstComma + 1, secondComma).toFloat();
+        angle = data.substring(secondComma + 1).toFloat();
 
         // You can now use the 'force' and 'displacement' values
+        // You can now use angle values
     }
 }
 
@@ -230,6 +237,20 @@ void handle_broadcast(float force, float displacement, String target_force)
     ;
 }
 
+// Update the broadcast function to include angle
+void broadcast_reading()
+{
+    DynamicJsonDocument doc(200);
+    doc["force"] = force;
+    doc["displacement"] = displacement;
+    doc["angle"] = angle;
+    
+    String output;
+    serializeJson(doc, output);
+    websocket.textAll(output);
+}
+
+/*
 void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, String test)
 {
     u8g2.setFont(u8g2_font_5x7_tf);
@@ -248,6 +269,37 @@ void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, f
 
     u8g2.print(displacement, 1);
     u8g2.print(" mm");
+} */
+
+// Created new display_measurements function to handle all measurements instead of the previous display_force_displacement
+void display_measurements(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, float angle, String test)
+{
+    u8g2.setFont(u8g2_font_5x7_tf);
+    
+    // Display Force
+    u8g2.setCursor(0, 40);
+    u8g2.print("FORCE = ");
+    if (test == "COMPRESSION")
+    {
+        force = force * -1;
+    }
+    u8g2.print(force, 1);
+    u8g2.print(" N");
+
+    // Display Extension/Displacement
+    u8g2.setCursor(0, 50);
+    u8g2.print("EXTENSION = ");
+    u8g2.print(displacement, 1);
+    u8g2.print(" mm");
+
+    // Display Angle (only for torsion test)
+    if (test == "TORSION")
+    {
+        u8g2.setCursor(0, 60);
+        u8g2.print("ANGLE = ");
+        u8g2.print(angle, 1);
+        u8g2.print("\xB0"); // Degree symbol
+    }
 }
 
 void display_status_in_footer(U8G2_ST7920_128X64_F_SW_SPI u8g2, Status &status)
@@ -279,66 +331,116 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
     case NOT_STARTED:
         /* code */
         break;
+
     case STARTED:
-        if (temporary_force != force || floor(temporary_displacement) != floor(displacement))
+        // Check if any measurement has changed
+        bool measurementChanged = (temporary_force != force || floor(temporary_displacement) != floor(displacement) || (test == "TORSION" && angle != temporary_angle)); // Capture any angle change
+
+        if (measurementChanged)
         {
+
+            // Handle tests without targets
             if (target_force.isEmpty() && target_extension.isEmpty())
-
             {
-                if (temporary_force > force && force == 0)
+                if (test == "TORSION")
                 {
-                    broadcast_reading(force, displacement);
-
-                    current_status = STOPPED;
-                    broadcastStatus(STOPPED);
-                    Serial1.println("10");
-                    temporary_force = -1;
-                }
-                else
-                {
-
-                    broadcast_reading(force, displacement);
-                    Serial1.println("11");
+                    // For torsion tests, broadcast all three measurements
+                    broadcast_reading(force, displacement, angle);
                     temporary_force = force;
-                    temporary_displacement = displacement;
+                    temporary_displacement = displacement;6
+                    temporary_angle = angle;  // Track the angle change
+                    Serial1.println("11");
+                } else {
+                    // For tension/compression tests   
+                    if (temporary_force > force && force == 0)
+                    {
+                        broadcast_reading(force, displacement);
+                        current_status = STOPPED;
+                        broadcastStatus(STOPPED);
+                        Serial1.println("10");
+                        temporary_force = -1;
+                    } else {
+                        broadcast_reading(force, displacement);
+                        Serial1.println("11");
+                        temporary_force = force;
+                        temporary_displacement = displacement;
+                    }
                 }
             }
+
+            // Handle force target tests
             else if (!target_force.isEmpty())
             {
-                Serial.print("target_force: ");
-                Serial.println(target_force);
-                if (force < abs(target_force.toFloat()))
-                {
-                    broadcast_reading(force, displacement);
-                    temporary_force = force;
-                    temporary_displacement = displacement;
-                    Serial1.println("11");
-                }
-                else
-                {
-                    current_status = STOPPED;
-                    broadcast_reading(force, displacement);
-                    broadcastStatus(STOPPED);
-                    Serial1.println("10");
+                float targetForceValue = abs(target_force.toFloat());
+                if (test == "TORSION") {
+                    // for torsion tests, heck both force and angle
+                    if (force < targetForceValue){
+                        broadcast_reading(force, displacement, angle);
+                        temporary_force = force;
+                        temporary_displacement = displacement;
+                        temporary_angle = angle;
+                        Serial1.println("11");
+                    } else {
+                        current_status = STOPPED;
+                        broadcast_reading(force, displacement, angle);
+                        broadcastStatus(STOPPED);
+                        Serial1.println("10");
+                    }
+                    
+                } else {
+                    // For tension/compresssion tests
+
+                    Serial.print("target_force: ");
+                    Serial.println(target_force);
+
+                    if (force < targetForceValue) {
+                        broadcast_reading(force, displacement);
+                        temporary_force = force;
+                        temporary_displacement = displacement;
+                        Serial1.println("11");
+                    } else {
+                        current_status = STOPPED;
+                        broadcast_reading(force, displacement);
+                        broadcastStatus(STOPPED);
+                        Serial1.println("10");
+                    }
                 }
             }
+
+            // Handle extension target tests
             else if (!target_extension.isEmpty())
             {
-                if (abs(displacement) <= abs(target_extension.toFloat()))
-                {
-                    broadcast_reading(force, displacement);
-                    temporary_force = force;
-                    temporary_displacement = displacement;
-                    Serial1.println("11");
-                }
-                else
-                {
-                    // digitalWrite(BUZZER_PIN, HIGH);
-                    current_status = STOPPED;
-                    broadcast_reading(force, displacement);
-                    broadcastStatus(STOPPED);
-                    // digitalWrite(BUZZER_PIN, LOW);
-                    Serial1.println("10");
+                float targetExtensionValue = abs(target_extension.toFloat());
+
+                if (test == "TORSION") {
+                    // For torsion tests, use angle instead of displacement
+                    if (abs(angle) <= targetExtensionValue) {
+                        broadcast_reading(force, displacement, angle);
+                        temporary_force = force;
+                        temporary_displacement = displacement;
+                        temporary_angle = angle;
+                        Serial1.println("11");
+                    } else {
+                        current_status = STOPPED;
+                        broadcast_reading(force, displacement, angle);
+                        broadcastStatus(STOPPED);
+                        Serial1.println("10");
+                    }
+                } else {
+                    // For tension/compression tests
+                    if (abs(displacement) <= targetExtensionValue) {
+                        broadcast_reading(force, displacement);
+                        temporary_force = force;
+                        temporary_displacement = displacement;
+                        Serial1.println("11");
+                    } else {
+                        // digitalWrite(BUZZER_PIN, HIGH);
+                        current_status = STOPPED;
+                        broadcast_reading(force, displacement);
+                        broadcastStatus(STOPPED);
+                        // digitalWrite(BUZZER_PIN, LOW);
+                        Serial1.println("10");
+                    }
                 }
             }
         }
