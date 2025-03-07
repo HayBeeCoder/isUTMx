@@ -349,7 +349,7 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
                     temporary_force = force;
                     temporary_displacement = displacement;6
                     temporary_angle = angle;  // Track the angle change
-                    Serial1.println("11");
+                    Serial1.println("21");
                 } else {
                     // For tension/compression tests   
                     if (temporary_force > force && force == 0)
@@ -379,12 +379,12 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
                         temporary_force = force;
                         temporary_displacement = displacement;
                         temporary_angle = angle;
-                        Serial1.println("11");
+                        Serial1.println("21");
                     } else {
                         current_status = STOPPED;
                         broadcast_reading(force, displacement, angle);
                         broadcastStatus(STOPPED);
-                        Serial1.println("10");
+                        Serial1.println("20");
                     }
                     
                 } else {
@@ -419,12 +419,12 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
                         temporary_force = force;
                         temporary_displacement = displacement;
                         temporary_angle = angle;
-                        Serial1.println("11");
+                        Serial1.println("21");
                     } else {
                         current_status = STOPPED;
                         broadcast_reading(force, displacement, angle);
                         broadcastStatus(STOPPED);
-                        Serial1.println("10");
+                        Serial1.println("20");
                     }
                 } else {
                     // For tension/compression tests
