@@ -69,8 +69,8 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         u8g2.setDrawColor(1);
         u8g2.drawBox(0, 10, 128, 12);
         u8g2.setDrawColor(2);
+        
         u8g2.setFont(u8g2_font_4x6_tf);
-
         // Modify display based on test type
         if (test == "tension" || test == "compression")
         {
