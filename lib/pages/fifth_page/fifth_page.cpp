@@ -1,4 +1,3 @@
-
 #include <U8g2lib.h>
 #include <check_wifi/check_wifi.h>
 #include <EEPROM.h>
@@ -9,7 +8,7 @@ bool cursorVisible = true;
 const long interval = 500;        // Blink interval (500 ms)
 unsigned long previousMillis = 0; // For the blinking effect
 int MAX_LENGTH_OF_INPUT_VALUE_ALLOWED = 9;
-void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_address, char key, String test, int address, String &inputt_value, String &sensor_rating_in_kg, String &targetForce, int &selected_page, String &targetExtension, int target_extension_address, String extensometer_rating)
+void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_address, char key, String test, int address, String &inputt_value, String &sensor_rating_in_kg, String &targetForce, int &selected_page, String &targetExtension, int target_extension_address, String &targetSpeed, String extensometer_rating)
 {
 
     u8g2.clearBuffer();
@@ -48,8 +47,20 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         u8g2.setFont(u8g2_font_5x7_tf);
         u8g2.drawStr(textSize + 5, 19, buffer);
 
-        displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET FORCE ", 32);
-        displayCenteredTextAlongXAxis(u8g2, "( in NEWTONS )", 42);
+        // Modify prompt based on test type
+        if (test = "tension" || test == "compression")
+        {
+            displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET FORCE ", 32);
+            displayCenteredTextAlongXAxis(u8g2, "( in NEWTONS )", 42);
+        }
+        else if (test == "torsion")
+        {
+            displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET TORQUE ", 32);
+            displayCenteredTextAlongXAxis(u8g2, "( in N-m )", 42);
+        }   
+
+        // displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET FORCE ", 32);
+        // displayCenteredTextAlongXAxis(u8g2, "( in NEWTONS )", 42);
     }
     else if (page == 52)
     {
@@ -58,17 +69,53 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         u8g2.setDrawColor(1);
         u8g2.drawBox(0, 10, 128, 12);
         u8g2.setDrawColor(2);
+        
+        u8g2.setFont(u8g2_font_4x6_tf);
+        // Modify display based on test type
+        if (test == "tension" || test == "compression")
+        {
+            String text = "EXTENSOMETER RATING IN MM=";
+            u8g2.drawStr(2, 19, text.c_str());
+            int textSize = u8g2.getStrWidth(text.c_str());
+            u8g2.setFont(u8g2_font_5x7_tf);
+            u8g2.drawStr(textSize + 5, 19, extensometer_rating.c_str());
+
+            displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET EXTENSION ", 32);
+            displayCenteredTextAlongXAxis(u8g2, "( in mm )", 42);
+        }
+        else if (test == "torsion")
+        {
+            String text = "TORQUE SENSOR RATING=";
+            u8g2.drawStr(2, 19, text.c_str());
+            int textSize = u8g2.getStrWidth(text.c_str());
+            u8g2.setFont(u8g2_font_5x7_tf);
+            u8g2.drawStr(textSize + 5, 19, extensometer_rating.c_str());
+
+            displayCenteredTextAlongXAxis(u8g2, "ENTER ANGLE OF TWIST ", 32);
+            displayCenteredTextAlongXAxis(u8g2, "( in degrees )", 42);
+        }
+    }
+    else if (page == 53)
+    {
+        u8g2.setFontMode(1);
+        u8g2.setDrawColor(1);
+        u8g2.drawBox(0, 10, 128, 12);
+        u8g2.setDrawColor(2);
 
         u8g2.setFont(u8g2_font_4x6_tf);
-        String text = "EXTENSOMETER RATING IN MM=";
+        String text = "TARGET DISPLACEMENT RATE:";
         u8g2.drawStr(2, 19, text.c_str());
         int textSize = u8g2.getStrWidth(text.c_str());
         u8g2.setFont(u8g2_font_5x7_tf);
-        u8g2.drawStr(textSize + 5, 19, extensometer_rating.c_str());
 
-        displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET EXTENSION ", 32);
-        displayCenteredTextAlongXAxis(u8g2, "( in mm )", 42);
+        // Display previously entered speed or a placeholder
+        String speedUnit = " mm/min";
+        u8g2.drawStr(textSize + 5, 19, speedUnit.c_str());
+
+        displayCenteredTextAlongXAxis(u8g2, "ENTER DISPLACEMENT SPEED", 32);
+        displayCenteredTextAlongXAxis(u8g2, "( in mm/min )", 42);
     }
+    
 
     if (key)
     {
@@ -98,6 +145,14 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                     targetForce = "-1";
                     targetExtension = "-1";
                 }
+                else if (page == 53)
+                {
+                    EEPROM.put(page_value_address, 52);
+                    targetForce = "-1";
+                    targetExtension = "-1";
+                    targetSpeed = "-1";
+                }
+                
                 EEPROM.commit();
                 EEPROM.get(page_value_address, selected_page);
             }
@@ -126,7 +181,10 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 (page == 51 &&
                  ((SENSOR_RATING_IN_N - inputt_value.toFloat()) >= LOADCELL_TOLERANCE)) ||
                 (page == 52 &&
-                 ((extensometer_rating.toInt() - inputt_value.toInt()) >= EXTENSOMETER_TOLERANCE)))
+                 ((extensometer_rating.toInt() - inputt_value.toInt()) >= EXTENSOMETER_TOLERANCE))
+                // Added validation for new speed page
+                (page == 53 && !inputt_value.isEmpty() && inputt_value.toFloat() > 0 && inputt_value.toFloat() <= 100))
+                
             {
                 if (page == 5)
                 {
@@ -137,7 +195,9 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                     if (!inputt_value.isEmpty())
                     {
                         EEPROM.put(target_extension_address, "");
-                        EEPROM.put(page_value_address, 6);
+                        //  value has to be 53 cos if (!input_value.isEmpty) i.e. if inputted value is not empty and current page is the prompt target force.
+                        //  then there is no need to go to the immediate next page ( which is for target extension ) hence the skipping of 52 and going to page 53 ( where we are to enter the target speed )
+                        EEPROM.put(page_value_address, 53);
                     }
                     else if (inputt_value.isEmpty())
                     {
@@ -146,9 +206,19 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 }
                 else if (page == 52)
                 {
+                    // Modify to go to speed input page
+                    EEPROM.put(page_value_address, 53);
+                    // EEPROM.put(page_value_address, 6);
+                }
+                else if (page == 53)
+                {
                     EEPROM.put(page_value_address, 6);
                 }
+                
                 EEPROM.commit();
+
+                // The following get values currently stored in memory on visiting a page and displays that value ( which is editable) initially rather than just an empty value
+
                 if (page == 5)
                 {
 
@@ -163,6 +233,11 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 {
                     EEPROM.get(address, targetExtension);
                 }
+                else if (page == 53)
+                {
+                    EEPROM.get(address, targetSpeed);
+                }
+                
                 inputt_value = "";
             }
             // if (pageType == SENSOR_RATING_PAGE) {
