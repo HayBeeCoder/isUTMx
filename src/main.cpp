@@ -71,6 +71,7 @@ String TARGET_FORCE = "-1";
 String TARGET_EXTENSION = "-1";
 String TARGET_SPEED = "-1"; // Added place holder for speed
 int EMPTY;
+float angle = 0.0;
 
 // Variable declarations/instantations
 const byte ROWS = 4;
@@ -115,8 +116,8 @@ String selectedTest()
   else if (SELECTED_TEST_VALUE == TORSION)
   {
     return "torsion";
-  } // Torsion handling
-}
+  }
+} // Torsion handling
 
 void setup()
 {
@@ -210,7 +211,7 @@ void setup()
 
   server.on("/payload", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-      DynamicJsonDocument jsonDoc(BUFFER_SIZE); // Use DynamicJsonDocument
+      DynamicJsonDocument jsonDoc(BUFFER_SIZE); // Use DynamicJsonDocument , Update in the API is causing a change
       // Populate the JSON document with data
       String test;
     if (SELECTED_PAGE == SIXTH)

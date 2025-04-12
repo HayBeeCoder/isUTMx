@@ -6,19 +6,25 @@
 #define BUZZER_PIN 18
 #include "EEPROM.h"
 #include "types/status.h"
+#include <ArduinoJson.h>
+#include <ESPAsyncWebServer.h>
+#include <WebSocketsServer.h>
 
 String serialData = "";
 bool startBroadcast = false;
 bool endBroadcast = false;
 double temporary_force = -1;
 float temporary_displacement = -1;
+float temporary_angle = -1;
 char buffer[20];
 double force;
 float displacement;
-float angle = 0.0; // Additional global variable for angle
+extern float angle; // Additional global variable for angle
 int period = 5000;
 unsigned long time_now = 0;
 Status current_status = NOT_STARTED;
+extern WebSocketsServer websocket;
+String test = "";
 
 const char *statusToString(Status &status)
 {
@@ -41,10 +47,9 @@ const char *statusToString(Status &status)
 void box_with_white_background(U8G2_ST7920_128X64_F_SW_SPI u8g2, String sensor_rating, String target_force, String target_extension, String test);
 void handle_key_pressed(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, int current_page_address, int selected_page, String &target_force, String &sensor_rating, Status &current_status);
 void handle_broadcast(float force, float displacement, String target_force);
-// void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, String test);
 void display_status_in_footer(U8G2_ST7920_128X64_F_SW_SPI u8g2, Status &status);
 void handle_current_status_logic(Status &current_status, String &target_force, String &target_extension, char &key);
-void display_measurements(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, float angle, String test)
+void display_measurements(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, float angle, String test);
 void broadcast_reading(float force, float displacement, float angle = 0.0);
 
 
@@ -52,7 +57,7 @@ void process_serial2_data(String data)
 {
     // Process the incoming serial data
     int firstComma = data.indexOf(',');
-    int secondComma = data.indexOf(',', firstComma + 1)
+    int secondComma = data.indexOf(',', firstComma + 1);
 
     if (firstComma > 0 && secondComma > 0)
     {
@@ -106,7 +111,7 @@ void sixth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, char &key, String &test, St
 
     // jkl;j
     box_with_white_background(u8g2, sensor_rating, target_force, target_extension, test);
-    display_force_displacement(u8g2, force, displacement, test);
+    display_measurements(u8g2, force, displacement, angle, test);
 
     display_status_in_footer(u8g2, current_status);
 
@@ -238,7 +243,7 @@ void handle_broadcast(float force, float displacement, String target_force)
 }
 
 // Update the broadcast function to include angle
-void broadcast_reading()
+void broadcast_reading(float force, float displacement, float angle)
 {
     DynamicJsonDocument doc(200);
     doc["force"] = force;
@@ -247,29 +252,9 @@ void broadcast_reading()
     
     String output;
     serializeJson(doc, output);
-    websocket.textAll(output);
+    websocket.broadcastTXT(output);
 }
 
-/*
-void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, String test)
-{
-    u8g2.setFont(u8g2_font_5x7_tf);
-    u8g2.setCursor(0, 40);
-    u8g2.print("FORCE = ");
-    if (test == "COMPRESSION")
-    {
-        force = force * -1;
-    }
-
-    u8g2.print(force, 1);
-    u8g2.print(" N");
-
-    u8g2.setCursor(0, 50);
-    u8g2.print("EXTENSION = ");
-
-    u8g2.print(displacement, 1);
-    u8g2.print(" mm");
-} */
 
 // Created new display_measurements function to handle all measurements instead of the previous display_force_displacement
 void display_measurements(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, float displacement, float angle, String test)
@@ -325,6 +310,7 @@ void display_status_in_footer(U8G2_ST7920_128X64_F_SW_SPI u8g2, Status &status)
 
 void handle_current_status_logic(Status &current_status, String &target_force, String &target_extension, char &key)
 {
+    bool measurementChanged = false;
 
     switch (current_status)
     {
@@ -334,7 +320,7 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
 
     case STARTED:
         // Check if any measurement has changed
-        bool measurementChanged = (temporary_force != force || floor(temporary_displacement) != floor(displacement) || (test == "TORSION" && angle != temporary_angle)); // Capture any angle change
+        measurementChanged = (temporary_force != force || floor(temporary_displacement) != floor(displacement) || (test == "TORSION" && angle != temporary_angle)); // Capture any angle change
 
         if (measurementChanged)
         {
@@ -347,20 +333,20 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
                     // For torsion tests, broadcast all three measurements
                     broadcast_reading(force, displacement, angle);
                     temporary_force = force;
-                    temporary_displacement = displacement;6
+                    temporary_displacement = displacement;
                     temporary_angle = angle;  // Track the angle change
                     Serial1.println("21");
                 } else {
                     // For tension/compression tests   
                     if (temporary_force > force && force == 0)
                     {
-                        broadcast_reading(force, displacement);
+                        broadcast_reading(force, displacement, angle);
                         current_status = STOPPED;
                         broadcastStatus(STOPPED);
                         Serial1.println("10");
                         temporary_force = -1;
                     } else {
-                        broadcast_reading(force, displacement);
+                        broadcast_reading(force, displacement, angle);
                         Serial1.println("11");
                         temporary_force = force;
                         temporary_displacement = displacement;
@@ -394,13 +380,13 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
                     Serial.println(target_force);
 
                     if (force < targetForceValue) {
-                        broadcast_reading(force, displacement);
+                        broadcast_reading(force, displacement, angle);
                         temporary_force = force;
                         temporary_displacement = displacement;
                         Serial1.println("11");
                     } else {
                         current_status = STOPPED;
-                        broadcast_reading(force, displacement);
+                        broadcast_reading(force, displacement, angle);
                         broadcastStatus(STOPPED);
                         Serial1.println("10");
                     }
@@ -429,14 +415,14 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
                 } else {
                     // For tension/compression tests
                     if (abs(displacement) <= targetExtensionValue) {
-                        broadcast_reading(force, displacement);
+                        broadcast_reading(force, displacement, angle);
                         temporary_force = force;
                         temporary_displacement = displacement;
                         Serial1.println("11");
                     } else {
                         // digitalWrite(BUZZER_PIN, HIGH);
                         current_status = STOPPED;
-                        broadcast_reading(force, displacement);
+                        broadcast_reading(force, displacement, angle);
                         broadcastStatus(STOPPED);
                         // digitalWrite(BUZZER_PIN, LOW);
                         Serial1.println("10");
@@ -465,6 +451,7 @@ void handle_current_status_logic(Status &current_status, String &target_force, S
         }
         digitalWrite(BUZZER_PIN, LOW);
         current_status = NOT_STARTED;
+        
         break;
 
     default:

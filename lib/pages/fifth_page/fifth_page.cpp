@@ -48,12 +48,12 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         u8g2.drawStr(textSize + 5, 19, buffer);
 
         // Modify prompt based on test type
-        if (test = "tension" || test == "compression")
+        if (test.equalsIgnoreCase("tension") || test.equalsIgnoreCase("compression"))
         {
             displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET FORCE ", 32);
             displayCenteredTextAlongXAxis(u8g2, "( in NEWTONS )", 42);
         }
-        else if (test == "torsion")
+        else if (test.equalsIgnoreCase("torsion"))
         {
             displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET TORQUE ", 32);
             displayCenteredTextAlongXAxis(u8g2, "( in N-m )", 42);
@@ -72,7 +72,7 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         
         u8g2.setFont(u8g2_font_4x6_tf);
         // Modify display based on test type
-        if (test == "tension" || test == "compression")
+        if (test.equalsIgnoreCase("tension") || test.equalsIgnoreCase("compression"))
         {
             String text = "EXTENSOMETER RATING IN MM=";
             u8g2.drawStr(2, 19, text.c_str());
@@ -83,7 +83,7 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
             displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET EXTENSION ", 32);
             displayCenteredTextAlongXAxis(u8g2, "( in mm )", 42);
         }
-        else if (test == "torsion")
+        else if (test.equalsIgnoreCase("torsion"))
         {
             String text = "TORQUE SENSOR RATING=";
             u8g2.drawStr(2, 19, text.c_str());
@@ -109,8 +109,11 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         u8g2.setFont(u8g2_font_5x7_tf);
 
         // Display previously entered speed or a placeholder
-        String speedUnit = " mm/min";
-        u8g2.drawStr(textSize + 5, 19, speedUnit.c_str());
+        // String speedUnit = " mm/min";
+        // u8g2.drawStr(textSize + 5, 19, speedUnit.c_str());
+        String displaySpeed = targetSpeed != "-1" ? targetSpeed : "";
+        String speedDisplay = displaySpeed + " mm/min";
+        u8g2.drawStr(textSize + 5, 19, speedDisplay.c_str());
 
         displayCenteredTextAlongXAxis(u8g2, "ENTER DISPLACEMENT SPEED", 32);
         displayCenteredTextAlongXAxis(u8g2, "( in mm/min )", 42);
@@ -134,12 +137,14 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 {
 
                     EEPROM.put(page_value_address, 4);
-                }else if (page == 51)
+                }
+                else if (page == 51)
                 {
                     EEPROM.put(page_value_address, 5);
                     sensor_rating_in_kg = "-1";
                     targetForce = "-1";
-                }else if (page == 52)
+                }
+                else if (page == 52)
                 {
                     EEPROM.put(page_value_address, 51);
                     targetForce = "-1";
@@ -148,12 +153,13 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 else if (page == 53)
                 {
                     EEPROM.put(page_value_address, 52);
-                    targetForce = "-1";
-                    targetExtension = "-1";
+                    // targetForce = "-1";
+                    // targetExtension = "-1";
                     targetSpeed = "-1";
+                    EEPROM.commit();
                 }
                 
-                EEPROM.commit();
+                // EEPROM.commit();
                 EEPROM.get(page_value_address, selected_page);
             }
             else
@@ -181,7 +187,7 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 (page == 51 &&
                  ((SENSOR_RATING_IN_N - inputt_value.toFloat()) >= LOADCELL_TOLERANCE)) ||
                 (page == 52 &&
-                 ((extensometer_rating.toInt() - inputt_value.toInt()) >= EXTENSOMETER_TOLERANCE))
+                 ((extensometer_rating.toInt() - inputt_value.toInt()) >= EXTENSOMETER_TOLERANCE)) ||
                 // Added validation for new speed page
                 (page == 53 && !inputt_value.isEmpty() && inputt_value.toFloat() > 0 && inputt_value.toFloat() <= 100))
                 
@@ -192,14 +198,14 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 }
                 else if (page == 51)
                 {
-                    if (!inputt_value.isEmpty())
+                    if (inputt_value.isEmpty())
                     {
-                        EEPROM.put(target_extension_address, "");
+                        EEPROM.put(target_extension_address, "-1");
                         //  value has to be 53 cos if (!input_value.isEmpty) i.e. if inputted value is not empty and current page is the prompt target force.
                         //  then there is no need to go to the immediate next page ( which is for target extension ) hence the skipping of 52 and going to page 53 ( where we are to enter the target speed )
                         EEPROM.put(page_value_address, 53);
                     }
-                    else if (inputt_value.isEmpty())
+                    else if (!inputt_value.isEmpty())
                     {
                         EEPROM.put(page_value_address, 52);
                     }
@@ -213,9 +219,12 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 else if (page == 53)
                 {
                     EEPROM.put(page_value_address, 6);
+                    EEPROM.commit();
+                    targetSpeed = inputt_value;
+
                 }
                 
-                EEPROM.commit();
+                // EEPROM.commit();
 
                 // The following get values currently stored in memory on visiting a page and displays that value ( which is editable) initially rather than just an empty value
 
