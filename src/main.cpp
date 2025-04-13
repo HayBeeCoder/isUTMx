@@ -13,6 +13,7 @@
 
 // custom library
 #include "first_page/first_page.h"
+#include "first_page_two/first_page_two.h"
 #include "second_page/second_page.h"
 #include "third_page/third_page.h"
 #include "fourth_page/fourth_page.h"
@@ -261,6 +262,7 @@ void setup()
   EEPROM.get(SELECT_TEST_VALUE_ADDRESS, SELECTED_TEST_VALUE);
 
   first_page_ui(u8g2);
+  first_page_two_ui(u8g2);
   second_page_ui(u8g2);
   third_page_ui(u8g2, WIFI_SSID, WIFI_PASSWORD);
   server.begin();

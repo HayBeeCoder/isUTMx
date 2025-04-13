@@ -15,5 +15,5 @@ void second_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2)
     u8g2.print("PROF. A.T. AJIBOYE");
 
     u8g2.sendBuffer();
-    delay(1000);
+    delay(1500);
 }
