@@ -72,6 +72,8 @@ String TARGET_EXTENSION = "-1";
 String TARGET_SPEED = "-1"; // Added place holder for speed
 int EMPTY;
 float angle = 0.0;
+char lastKey = 0;
+boolean displayNeedsUpdate = true;
 
 // Variable declarations/instantations
 const byte ROWS = 4;
@@ -118,6 +120,20 @@ String selectedTest()
     return "torsion";
   }
 } // Torsion handling
+
+// Add this helper function to be used in the 53 page
+bool isValidSpeed(String speed) {
+  // Check if speed contains only digits and is within a reasonable range
+  if (speed.length() == 0) return false;
+    
+  for (int i = 0; i < speed.length(); i++) {
+    if (!isDigit(speed[i])) return false;
+  }
+    
+  // Convert to integer and check range (adjust min/max as needed)
+  int speedVal = speed.toInt();
+  return (speedVal >= 0 && speedVal <= 360);
+}
 
 void setup()
 {
@@ -256,6 +272,8 @@ void loop()
 {
   String test;
   char key = keypad.getKey();
+  boolean keyPressed = (key != 0); // Check if a key was pressed
+
   if (SELECTED_PAGE == FIFTH)
   {
     if (SENSOR_RATING_IN_KG == "-1")
@@ -287,16 +305,49 @@ void loop()
     }
     fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), TARGET_EXTENSION_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, TARGET_SPEED, "150");
   }
-
-  if (SELECTED_PAGE == FIFTH_THREE)
-  {
-    if (TARGET_SPEED == "-1")
+  if (keyPressed || displayNeedsUpdate) {
+    if (SELECTED_PAGE == FIFTH_THREE)
     {
-      EEPROM.get(SPEED_ADDRESS, TARGET_SPEED);
+      static String previousInput = "";
+      if (TARGET_SPEED == "-1")
+      {
+        EEPROM.get(SPEED_ADDRESS, TARGET_SPEED);
+        // Validate the retrieved value
+        if (TARGET_SPEED.length() == 0 || TARGET_SPEED == "-1" || !isValidSpeed(TARGET_SPEED)) {
+          TARGET_SPEED = ""; // Set a valid default
+          input_value = "";
+          EEPROM.put(SPEED_ADDRESS, TARGET_SPEED);
+          EEPROM.commit();
+        }
+        input_value = TARGET_SPEED;
+      }
+
+      // Force display update when input changes
+      bool inputChanged = (previousInput != input_value);
+      // Only pass the key if one was actually pressed
+      char keyToPass = keyPressed ? key : 0;
+
+      fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), SPEED_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, TARGET_SPEED, "360"); // I can either use "150" or EXTENSOMETER_RATING_IN_MM 
+      if (key) {
+      Serial.print("Key pressed: ");
+      Serial.println(key);
+      Serial.print("Current input: ");
+      Serial.println(input_value);
+        
+        // Force another display update on next loop if key was pressed
+        previousInput = "";  // This forces update on next iteration
+      } else {
+        previousInput = input_value;
+      }
       
-      input_value = TARGET_SPEED;
+      displayNeedsUpdate = false; // Display has been updated
     }
-    fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), SPEED_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, TARGET_SPEED, "150"); // I can either use "150" or EXTENSOMETER_RATING_IN_MM 
+  }
+  // Set displayNeedsUpdate to true when the page changes
+  static int lastPage = SELECTED_PAGE;
+  if (lastPage != SELECTED_PAGE) {
+    displayNeedsUpdate = true;
+    lastPage = SELECTED_PAGE;
   }
   
 
@@ -374,3 +425,4 @@ void sendTestType() {
         Serial2.println("torsion");
     }
 }
+

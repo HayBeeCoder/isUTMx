@@ -97,6 +97,9 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
     }
     else if (page == 53)
     {
+        Serial.print("Current page: ");
+        Serial.println(page);
+
         u8g2.setFontMode(1);
         u8g2.setDrawColor(1);
         u8g2.drawBox(0, 10, 128, 12);
@@ -108,15 +111,22 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         int textSize = u8g2.getStrWidth(text.c_str());
         u8g2.setFont(u8g2_font_5x7_tf);
 
-        // Display previously entered speed or a placeholder
-        // String speedUnit = " mm/min";
-        // u8g2.drawStr(textSize + 5, 19, speedUnit.c_str());
-        String displaySpeed = targetSpeed != "-1" ? targetSpeed : "";
-        String speedDisplay = displaySpeed + " mm/min";
-        u8g2.drawStr(textSize + 5, 19, speedDisplay.c_str());
+        // Fixed this part - ensure we're displaying the saved value correctly
+        // Only show the saved value, not the current input
+        if (targetSpeed != "-1" && targetSpeed.length() > 0) {
+            String speedDisplay = targetSpeed + " mm/min";
+            u8g2.drawStr(textSize + 5, 19, speedDisplay.c_str());
+        } else {
+            u8g2.drawStr(textSize + 5, 19, "0 mm/min");
+        }
 
         displayCenteredTextAlongXAxis(u8g2, "ENTER DISPLACEMENT SPEED", 32);
         displayCenteredTextAlongXAxis(u8g2, "( in mm/min )", 42);
+
+        Serial.print("Key pressed: ");
+        Serial.println(key);
+        Serial.print("Current input: ");
+        Serial.println(inputt_value);
     }
     
 
@@ -135,7 +145,6 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 Serial.println(page);
                 if (page == 5)
                 {
-
                     EEPROM.put(page_value_address, 4);
                 }
                 else if (page == 51)
@@ -153,13 +162,13 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 else if (page == 53)
                 {
                     EEPROM.put(page_value_address, 52);
-                    // targetForce = "-1";
-                    // targetExtension = "-1";
+                    targetForce = "-1";
+                    targetExtension = "-1";
                     targetSpeed = "-1";
-                    EEPROM.commit();
+                    // EEPROM.commit();
                 }
                 
-                // EEPROM.commit();
+                EEPROM.commit();
                 EEPROM.get(page_value_address, selected_page);
             }
             else
@@ -218,13 +227,13 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 }
                 else if (page == 53)
                 {
-                    EEPROM.put(page_value_address, 6);
-                    EEPROM.commit();
                     targetSpeed = inputt_value;
-
+                    EEPROM.put(address, targetSpeed);
+                    EEPROM.put(page_value_address, 6);
+                    // EEPROM.commit();
                 }
                 
-                // EEPROM.commit();
+                EEPROM.commit();
 
                 // The following get values currently stored in memory on visiting a page and displays that value ( which is editable) initially rather than just an empty value
 
@@ -265,6 +274,7 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
                 inputt_value += key;
             }
         }
+        
     }
     int textWidth = u8g2.getStrWidth(inputt_value.c_str());
     u8g2.drawStr((128 - textWidth) / 2, 52, inputt_value.c_str());
