@@ -241,7 +241,16 @@ void display_force_displacement(U8G2_ST7920_128X64_F_SW_SPI u8g2, float force, f
 {
     u8g2.setFont(u8g2_font_5x7_tf);
     u8g2.setCursor(0, 40);
-    u8g2.print("FORCE = ");
+
+    // Change display text based on test type for force/torque
+    if (test == "TORSION") {
+        u8g2.print("TORQUE = ");
+    } else {
+        u8g2.print("FORCE = ");
+    }
+
+    // u8g2.print("FORCE = ");
+    
     // Handle force display for compression and bending tests
     if (test == "COMPRESSION" || test == "BENDING")
     {
