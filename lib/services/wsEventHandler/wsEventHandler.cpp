@@ -12,14 +12,20 @@ char dataBuffer[BUFFER_SIZE] = "{\"type\":\"message\",\"LED\":false,\"rating\":\
 
 AsyncWebSocketClient *clients[16];
 
-// Example function to broadcast data to all connected clients
-void broadcast_reading(double force, double displacement)
+// Modified function to broadcast data based on test type
+void broadcast_reading(double force, double displacement, String test_type)
 {
   StaticJsonDocument<BUFFER_SIZE> jsonToSend;
   // Prepare the data to be sent out
   jsonToSend["type"] = "update";
   jsonToSend["force_in_newton"] = abs(force);
-  jsonToSend["displacement_in_mm"] = floor(abs(displacement)); 
+  
+  // Change parameter name based on test type
+  if (test_type.equalsIgnoreCase("torsion")) {
+    jsonToSend["angle_of_twist"] = floor(abs(displacement));
+  } else {
+    jsonToSend["displacement_in_mm"] = floor(abs(displacement));
+  }
 
   // Serialize the JSON data into the dataBuffer
   size_t len = serializeJson(jsonToSend, dataBuffer);
@@ -34,9 +40,15 @@ void broadcast_reading(double force, double displacement)
   }
 }
 
+// For backward compatibility
+void broadcast_reading(double force, double displacement)
+{
+  // Default to non-torsion test
+  broadcast_reading(force, displacement, "tension");
+}
+
 void broadcastPage(String page)
 {
-
   StaticJsonDocument<BUFFER_SIZE> jsonToSend;
   jsonToSend["currentPage"] = page;
   jsonToSend["type"] = "current_page";
@@ -56,13 +68,19 @@ void broadcastPage(String page)
 
 void broadcastSixthPageInfo(String test_type, String sensor_rating, String target_force, String target_extension)
 {
-
   StaticJsonDocument<BUFFER_SIZE> jsonToSend;
   jsonToSend["type"] = "dashboard_page_info";
   jsonToSend["test_type"] = test_type;
   jsonToSend["sensor_rating_kg"] = sensor_rating;
   jsonToSend["target_force"] = target_force;
-  jsonToSend["target_extension"] = target_extension;
+  
+  // Rename parameter based on test type
+  if (test_type.equalsIgnoreCase("torsion")) {
+    jsonToSend["target_angle"] = target_extension;  // Reuse target_extension for angle
+  } else {
+    jsonToSend["target_extension"] = target_extension;
+  }
+  
   jsonToSend["read_me_ish"] = "Multipy the sensor_rating_kg by 9.81";
 
   // Serialize the JSON data into the dataBuffer
@@ -80,7 +98,6 @@ void broadcastSixthPageInfo(String test_type, String sensor_rating, String targe
 
 void broadcastStatus(Status status)
 {
-
   /*
 
    state can be any of the following :
@@ -119,6 +136,7 @@ void broadcastStatus(Status status)
     }
   }
 }
+
 void wsEventHandler(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
   if (type == WS_EVT_DATA)

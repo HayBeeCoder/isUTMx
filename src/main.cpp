@@ -36,7 +36,8 @@ enum SELECTED_TEST
 {
   TENSION = 1,
   COMPRESSION = 2,
-  TORSION = 3 // Torsion selection allowed
+  TORSION = 3, // Torsion selection allowed
+  BENDING = 4 // Added bending test
 };
 
 enum CURRENT_PAGE
@@ -45,6 +46,7 @@ enum CURRENT_PAGE
   SECOND = 2,
   THIRD = 3,
   FOURTH = 4,
+  FOURTH_ONE = 41, // Compression Subage for bending selection
   FIFTH = 5,
   FIFTH_ONE = 51,
   FIFTH_TWO = 52,
@@ -96,13 +98,22 @@ AsyncWebSocket websocket("/ws");
 unsigned long lastSentTime = 0;
 const unsigned long messageInterval = 1000; // Send every 100 ms
 
+// void sendWebSocketMessage(String test_type, String sensor_rating, String target_force, String target_extension)
+// {
+//   if (millis() - lastSentTime >= messageInterval)
+//   {
+
+//     broadcastSixthPageInfo(test_type, sensor_rating, target_force, target_extension);
+
+//     lastSentTime = millis();
+//   }
+// }
+
 void sendWebSocketMessage(String test_type, String sensor_rating, String target_force, String target_extension)
 {
   if (millis() - lastSentTime >= messageInterval)
   {
-
     broadcastSixthPageInfo(test_type, sensor_rating, target_force, target_extension);
-
     lastSentTime = millis();
   }
 }
@@ -120,7 +131,31 @@ String selectedTest()
   {
     return "torsion";
   }
-} // Torsion handling
+  else if (SELECTED_TEST_VALUE == BENDING)
+  {
+    return "bending";
+  }
+  else {return "unknown";}
+}
+
+// New compression subpage UI
+void fourth_page_compression_subpage_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int address, int value_to_store_at_address) 
+{
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tf);
+  u8g2.setCursor(2, 7);
+  u8g2.print("SELECT COMPRESSION TYPE");
+  u8g2.setCursor(3, 25);
+  u8g2.print("HOLD 1 FOR COMPRESSION");
+  u8g2.setCursor(3, 36);
+  u8g2.print("HOLD 2 FOR BENDING");
+  u8g2.setCursor(3, 50);
+  u8g2.print("PRESS * TO GO BACK");
+  EEPROM.put(address, value_to_store_at_address);
+  EEPROM.commit();
+  EEPROM.get(address, value_to_store_at_address);
+  u8g2.sendBuffer();
+}
 
 // Add this helper function to be used in the 53 page
 bool isValidSpeed(String speed) {
@@ -329,7 +364,12 @@ void loop()
       // Only pass the key if one was actually pressed
       char keyToPass = keyPressed ? key : 0;
 
-      fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), SPEED_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, TARGET_SPEED, "360"); // I can either use "150" or EXTENSOMETER_RATING_IN_MM 
+      // *******************************************CHANGE*******************************
+      // Change the label based on the test type
+    
+      String maxValue = (SELECTED_TEST_VALUE == TORSION) ? "360" : "150";
+
+      fifth_page_ui(u8g2, SELECTED_PAGE, SELECTED_PAGE_ADDRESS, key, selectedTest(), SPEED_ADDRESS, input_value, SENSOR_RATING_IN_KG, TARGET_FORCE, SELECTED_PAGE, TARGET_EXTENSION, -1, TARGET_SPEED, maxValue); // I can either use "150" or EXTENSOMETER_RATING_IN_MM 
       if (key) {
       Serial.print("Key pressed: ");
       Serial.println(key);
@@ -355,6 +395,8 @@ void loop()
 
   if (SELECTED_PAGE == SIXTH)
   {
+    // Adding debug print before sixth_page_ui
+    // Serial.println("DEBUG: Before sixth_page_ui call");
 
     if (SELECTED_TEST_VALUE == TENSION)
     {
@@ -368,7 +410,14 @@ void loop()
     {
       test = "torsion";
     }
+    else if (SELECTED_TEST_VALUE == BENDING)
+    {
+      test = "bending";
+    }
     sixth_page_ui(u8g2, key, test, SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION, SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+
+    // Adding debug print after sixth_page_ui
+    // Serial.println("DEBUG: After sixth_page_ui call");
   }
 
   if (SELECTED_PAGE == FOURTH)
@@ -378,41 +427,73 @@ void loop()
     input_value = SENSOR_RATING_IN_KG;
   }
 
+  // Handle Compression subpage
+  if (SELECTED_PAGE == FOURTH_ONE)
+  {
+    fourth_page_compression_subpage_ui(u8g2, SELECTED_PAGE_ADDRESS, FOURTH_ONE);
+  }
+
   sendWebSocketMessage(selectedTest(), SENSOR_RATING_IN_KG, TARGET_FORCE, TARGET_EXTENSION);
 
   if (key)
   {
     EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
 
-    // if()
     if (SELECTED_PAGE == FOURTH)
     {
       if (key - '0' == FIRST)
       {
         EEPROM.put(SELECT_TEST_VALUE_ADDRESS, TENSION);
         EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
-        Serial2.println("tension"); // Send test type to Arduino Nano
+        Serial2.println("tension");
       }
-      else if (
-          key - '0' == SECOND)
+      else if (key - '0' == SECOND)
       {
-        EEPROM.put(SELECT_TEST_VALUE_ADDRESS, COMPRESSION);
-        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
-        Serial2.println("compression"); // Send test type to Arduino Nano
+        // Go to compression subpage instead of directly to FIFTH
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FOURTH_ONE);
       }
       else if (key - '0' == THIRD)
       {
-        EEPROM.put(SELECTED_TEST_VALUE, TORSION);
+        EEPROM.put(SELECT_TEST_VALUE_ADDRESS, TORSION);
         EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
-        Serial2.println("torsion"); // Send test type to Arduino Nano
+        Serial2.println("torsion");
       }
-      // Sent the test types to Arduino nano because i used it to select what load cell to use for measurement based on the test type
 
       EEPROM.commit();
       EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
       EEPROM.get(SELECT_TEST_VALUE_ADDRESS, SELECTED_TEST_VALUE);
     }
+    
+    // Add handling for compression subpage (FOURTH_ONE)
+    else if (SELECTED_PAGE == FOURTH_ONE)
+    {
+      if (key == '1')  // Hold 1 for normal compression
+      {
+        EEPROM.put(SELECT_TEST_VALUE_ADDRESS, COMPRESSION);
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+        Serial2.println("compression");
+        EEPROM.commit();
+        EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+        EEPROM.get(SELECT_TEST_VALUE_ADDRESS, SELECTED_TEST_VALUE);
+      }
+      else if (key == '2')  // Hold 2 for bending
+      {
+        EEPROM.put(SELECT_TEST_VALUE_ADDRESS, BENDING);
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FIFTH);
+        Serial2.println("bending");
+        EEPROM.commit();
+        EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+        EEPROM.get(SELECT_TEST_VALUE_ADDRESS, SELECTED_TEST_VALUE);
+      }
+      else if (key == '*')  // Go back to main test selection
+      {
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FOURTH);
+        EEPROM.commit();
+        EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+      }
+    }
   }
+  yield(); // Gives time back to the system
 }
 
 // Adding this helper function to send test type (can be called from anywhere in case you need it)
@@ -425,6 +506,9 @@ void sendTestType() {
     }
     else if (SELECTED_TEST_VALUE == TORSION) {
         Serial2.println("torsion");
+    }
+    else if (SELECTED_TEST_VALUE == BENDING) {
+      Serial2.println("bending");
     }
 }
 

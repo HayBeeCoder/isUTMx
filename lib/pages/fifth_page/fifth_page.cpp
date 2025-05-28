@@ -48,7 +48,7 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         u8g2.drawStr(textSize + 5, 19, buffer);
 
         // Modify prompt based on test type
-        if (test.equalsIgnoreCase("tension") || test.equalsIgnoreCase("compression"))
+        if (test.equalsIgnoreCase("tension") || test.equalsIgnoreCase("compression") || test.equalsIgnoreCase("bending"))
         {
             displayCenteredTextAlongXAxis(u8g2, "ENTER TARGET FORCE ", 32);
             displayCenteredTextAlongXAxis(u8g2, "( in NEWTONS )", 42);
@@ -72,7 +72,7 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         
         u8g2.setFont(u8g2_font_4x6_tf);
         // Modify display based on test type
-        if (test.equalsIgnoreCase("tension") || test.equalsIgnoreCase("compression"))
+        if (test.equalsIgnoreCase("tension") || test.equalsIgnoreCase("compression") || test.equalsIgnoreCase("bending"))
         {
             String text = "EXTENSOMETER RATING IN MM=";
             u8g2.drawStr(2, 19, text.c_str());
@@ -123,10 +123,6 @@ void fifth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page, int page_value_ad
         displayCenteredTextAlongXAxis(u8g2, "ENTER DISPLACEMENT SPEED", 32);
         displayCenteredTextAlongXAxis(u8g2, "( in mm/min )", 42);
 
-        Serial.print("Key pressed: ");
-        Serial.println(key);
-        Serial.print("Current input: ");
-        Serial.println(inputt_value);
     }
     
 

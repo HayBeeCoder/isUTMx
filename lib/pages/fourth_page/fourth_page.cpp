@@ -19,3 +19,6 @@ void  fourth_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int address, int value_to
   EEPROM.get(address, value_to_store_at_address);
   u8g2.sendBuffer();
 }
+
+
+// Lets modify this code to display a prompt "Perform Bending Test" and allow user choose yes or no with 1 or 2 respectively on the keypad then move to the parameter selection as usual  but with the page title changing to bending
