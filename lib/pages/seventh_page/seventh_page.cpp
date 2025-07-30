@@ -216,9 +216,25 @@ void seventh_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page_value_address, c
             displayCenteredTextAlongXAxis(u8g2, "PRESS * TO RECALIBRATE", 56);
             
             if (key == '#') {
-                // Save calibration factor to EEPROM if needed
+                // Save calibration factor to EEPROM for display system
                 // EEPROM.put(CALIBRATION_FACTOR_ADDRESS, calibrationFactor);
                 // EEPROM.commit();
+                
+                // Send calibration factor to nano via serial
+                String calibrationCommand = "CAL:" + String(calibrationFactor, 6);
+                Serial2.println(calibrationCommand);
+                
+                // Optional: Wait for confirmation from nano
+                delay(100);
+                
+                // Display confirmation message briefly
+                u8g2.clearBuffer();
+                check_wifi(u8g2);
+                u8g2.setFont(u8g2_font_5x7_tf);
+                displayCenteredTextAlongXAxis(u8g2, "CALIBRATION SENT", 25);
+                displayCenteredTextAlongXAxis(u8g2, "TO NANO", 35);
+                u8g2.sendBuffer();
+                delay(1500);
                 
                 // Return to previous page or main menu
                 EEPROM.put(page_value_address, 32); // Go back to THIRD_TWO

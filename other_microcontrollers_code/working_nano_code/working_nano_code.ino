@@ -1,11 +1,16 @@
 #include "HX711.h"
 #include <SoftwareSerial.h>
+#include <EEPROM.h>
 #include <math.h>
 
 // Define custom RX and TX pins for SoftwareSerial
 SoftwareSerial mySerial(7, 6);  // (TX, RX)serial.
 HX711 scale;
 
+// EEPROM addresses
+#define CALIBRATION_FACTOR_ADDRESS 0
+#define EEPROM_INITIALIZED_ADDRESS 4
+#define EEPROM_MAGIC_NUMBER 0xCAFE  // Magic number to check if EEPROM is initialized
 
 /*Connection port for the sensors
 +------------------------------------------+
@@ -18,9 +23,6 @@ HX711 scale;
 +          extensometer                    +
 +------------------------------------------+
 */
-// This is for tension and compression
-// #define LOADCELL_DOUT_PIN 3
-// #define LOADCELL_SCK_PIN 2
 
 // This is for tension/compression load cell
 #define LOADCELL_DOUT_PIN 4
@@ -30,9 +32,11 @@ HX711 scale;
 #define VERNIER_DATA_PIN 8
 
 float readCaliper();
-// calibration factor
-float calibration_factor = -22.9926536;
-// float calibration_factor = -7050;
+
+// Default calibration factor (fallback if EEPROM is not initialized)
+float default_calibration_factor = -22.9926536;
+float calibration_factor;
+
 long zero_factor;
 char buf[20];
 unsigned long tmpTime;
@@ -46,10 +50,12 @@ unsigned long timeout = 1000;  // Timeout in microseconds
 bool s_load_cell_connected = false;
 char outputBuffer[10];  // Buffer to hold the final string
 
-
 void setup() {
   mySerial.begin(4800);
   Serial.begin(115200);
+
+  // Initialize EEPROM and load calibration factor
+  loadCalibrationFactor();
 
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
   pinMode(VERNIER_CLOCK_PIN, INPUT);
@@ -61,6 +67,35 @@ void setup() {
 
   scale.tare();                        //Reset the scale to 0
   zero_factor = scale.read_average();  //Get a baseline reading
+
+  Serial.print("Using calibration factor: ");
+  Serial.println(calibration_factor, 6);
+}
+
+void loadCalibrationFactor() {
+  // Check if EEPROM has been initialized
+  uint16_t magic;
+  EEPROM.get(EEPROM_INITIALIZED_ADDRESS, magic);
+  
+  if (magic == EEPROM_MAGIC_NUMBER) {
+    // EEPROM is initialized, load the calibration factor
+    EEPROM.get(CALIBRATION_FACTOR_ADDRESS, calibration_factor);
+    Serial.println("Loaded calibration factor from EEPROM");
+  } else {
+    // EEPROM not initialized, use default and initialize EEPROM
+    calibration_factor = default_calibration_factor;
+    saveCalibrationFactor(calibration_factor);
+    Serial.println("EEPROM not initialized. Using default calibration factor and initializing EEPROM");
+  }
+}
+
+void saveCalibrationFactor(float factor) {
+  EEPROM.put(CALIBRATION_FACTOR_ADDRESS, factor);
+  EEPROM.put(EEPROM_INITIALIZED_ADDRESS, EEPROM_MAGIC_NUMBER);
+  calibration_factor = factor;
+  scale.set_scale(calibration_factor);  // Update the scale immediately
+  Serial.print("Saved new calibration factor to EEPROM: ");
+  Serial.println(factor, 6);
 }
 
 char TORSION[] = "torsion";
@@ -71,16 +106,41 @@ String SELECTED;
 
 void loop() {
 
-  // readCaliper();
+  static bool factorPrinted = false;
+  static unsigned long lastFactorPrint = 0;
+  
+  if (!factorPrinted || (millis() - lastFactorPrint > 30000)) { // Print every 30 seconds
+    Serial.print("Current calibration factor: ");
+    Serial.println(calibration_factor, 6);
+    factorPrinted = true;
+    lastFactorPrint = millis();
+  }
+  
+  // Check for serial commands
   if (mySerial.available()) {
     tare = mySerial.readString();
-
     tare.trim();
     Serial.print("RECEIVED: ");
     Serial.println(tare);
+    
     if (tare == "taring") {
       Serial.println(tare);
       scale.tare();
+    }
+    // Check if it's a calibration factor update command
+    else if (tare.startsWith("CAL:")) {
+      // Extract the calibration factor from the command
+      // Format: "CAL:1.234567"
+      String factorStr = tare.substring(4);
+      float newFactor = factorStr.toFloat();
+      
+      if (newFactor != 0.0) {  // Basic validation
+        saveCalibrationFactor(newFactor);
+        Serial.print("Updated calibration factor to: ");
+        Serial.println(newFactor, 6);
+      } else {
+        Serial.println("Invalid calibration factor received");
+      }
     }
   }
 
@@ -89,7 +149,6 @@ void loop() {
   // this weight is in grams
   Serial.print("weight: ");
   weight = floor(weight * 10) / 10;
-
 
   Serial.println(weight);
   // Convert weight from grammes to kilogrammes to Newtons and take the absolute value
@@ -112,7 +171,6 @@ void loop() {
   mySerial.print(readCaliper());  // Send caliper reading
   mySerial.println();             // End the message with a newline
 }
-
 
 float readCaliper() {
   unsigned long timeout = millis() + 1000;  // Timeout after 1 second
@@ -167,13 +225,11 @@ float readCaliper() {
     }
   }
 
-
   if (mm) {
     result = (value * sign) / 100.0;
   } else {
     result = (value * sign) / (inches ? 2000.0 : 100.0);  // Map values for inches
   }
-
 
   result = (floor(result * 10) / 10);
 
