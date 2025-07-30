@@ -16,9 +16,11 @@
 #include "first_page_two/first_page_two.h"
 #include "second_page/second_page.h"
 #include "third_page/third_page.h"
+#include "third_page_two/third_page_two.h"
 #include "fourth_page/fourth_page.h"
 #include "fifth_page/fifth_page.h"
 #include "sixth_page/sixth_page.h"
+#include "seventh_page/seventh_page.h"
 
 // Definitions
 #define FS LittleFS
@@ -45,6 +47,7 @@ enum CURRENT_PAGE
   FIRST = 1,
   SECOND = 2,
   THIRD = 3,
+  THIRD_TWO = 32, // Page for mode selection
   FOURTH = 4,
   FOURTH_ONE = 41, // Compression Subage for bending selection
   FIFTH = 5,
@@ -56,7 +59,7 @@ enum CURRENT_PAGE
   SEVENTH = 7
 };
 
-// Address
+// Addresses
 int SELECT_TEST_VALUE_ADDRESS = 0;
 int SELECTED_PAGE_ADDRESS = 5;
 int LOADCELL_RATING_ADDRESS = 15;
@@ -65,6 +68,9 @@ int MAX_FORCE_ADDRESS = 100;
 int EMPTY_ADDRESS = 150;
 int TARGET_EXTENSION_ADDRESS = 250;
 int SPEED_ADDRESS = 300; // Added address for speed
+int MACHINE_MODE_ADDRESS = 10;  // New EEPROM address to store machine operation mode
+int CALIBRATION_FACTOR_ADDRESS = 400;  // EEPROM address for storing calibration factor
+
 
 int SELECTED_TEST_VALUE = 0;
 int SELECTED_PAGE = FIRST;
@@ -77,6 +83,9 @@ int EMPTY;
 float angle = 0.0;
 char lastKey = 0;
 boolean displayNeedsUpdate = true;
+int MACHINE_MODE = 1;  // 1 for testing, 2 for calibration
+float sensorReading = 0.0;  // This should come from sensor
+float calibrationFactorGlobal = 0.0;  // To store the calibration factor
 
 // Variable declarations/instantations
 const byte ROWS = 4;
@@ -301,8 +310,9 @@ void setup()
   second_page_ui(u8g2);
   third_page_ui(u8g2, WIFI_SSID, WIFI_PASSWORD);
   server.begin();
-  Serial.println("Server Started");
-  fourth_page_ui(u8g2, SELECTED_PAGE_ADDRESS, FOURTH);
+  Serial.println("Server Started"); 
+  // fourth_page_ui(u8g2, SELECTED_PAGE_ADDRESS, FOURTH);
+  third_page_two_ui(u8g2, SELECTED_PAGE_ADDRESS, THIRD_TWO); // To handle operation mode first before test selection
 }
 
 void loop()
@@ -310,7 +320,11 @@ void loop()
   String test;
   char key = keypad.getKey();
   boolean keyPressed = (key != 0); // Check if a key was pressed
-
+  // Section to handle Pages
+    if (SELECTED_PAGE == THIRD_TWO)
+  {
+    third_page_two_ui(u8g2, SELECTED_PAGE_ADDRESS, THIRD_TWO);
+  } 
   if (SELECTED_PAGE == FIFTH)
   {
     if (SENSOR_RATING_IN_KG == "-1")
@@ -391,7 +405,6 @@ void loop()
     displayNeedsUpdate = true;
     lastPage = SELECTED_PAGE;
   }
-  
 
   if (SELECTED_PAGE == SIXTH)
   {
@@ -419,7 +432,11 @@ void loop()
     // Adding debug print after sixth_page_ui
     // Serial.println("DEBUG: After sixth_page_ui call");
   }
-
+  // Added to handle the caliberatin
+    if (SELECTED_PAGE == SEVENTH)
+  {
+    seventh_page_ui(u8g2, SELECTED_PAGE_ADDRESS, key, SELECTED_PAGE, calibrationFactorGlobal);
+  }
   if (SELECTED_PAGE == FOURTH)
   {
     fourth_page_ui(u8g2, SELECTED_PAGE_ADDRESS, FOURTH);
@@ -488,6 +505,31 @@ void loop()
       else if (key == '*')  // Go back to main test selection
       {
         EEPROM.put(SELECTED_PAGE_ADDRESS, FOURTH);
+        EEPROM.commit();
+        EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+      }
+    }
+    else if (SELECTED_PAGE == THIRD_TWO)
+    {
+      if (key == '1')  // Testing mode
+      {
+        EEPROM.put(MACHINE_MODE_ADDRESS, 1);  // Store testing mode
+        EEPROM.put(SELECTED_PAGE_ADDRESS, FOURTH);  // Go to test selection
+        EEPROM.commit();
+        EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+        EEPROM.get(MACHINE_MODE_ADDRESS, MACHINE_MODE);
+      }
+      else if (key == '2')  // Calibration mode
+      {
+        EEPROM.put(MACHINE_MODE_ADDRESS, 2);  // Store calibration mode
+        EEPROM.put(SELECTED_PAGE_ADDRESS, SEVENTH);  // Go to calibration page (you'll create this)
+        EEPROM.commit();
+        EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
+        EEPROM.get(MACHINE_MODE_ADDRESS, MACHINE_MODE);
+      }
+      else if (key == '*')  // Go back (if needed)
+      {
+        EEPROM.put(SELECTED_PAGE_ADDRESS, THIRD);  // Or whatever previous page you want
         EEPROM.commit();
         EEPROM.get(SELECTED_PAGE_ADDRESS, SELECTED_PAGE);
       }
