@@ -34,7 +34,7 @@ HX711 scale;
 float readCaliper();
 
 // Default calibration factor (fallback if EEPROM is not initialized)
-float default_calibration_factor = -22.9926536;
+float default_calibration_factor = 24.525000;
 float calibration_factor;
 
 long zero_factor;
@@ -152,7 +152,7 @@ void loop() {
 
   Serial.println(weight);
   // Convert weight from grammes to kilogrammes to Newtons and take the absolute value
-  float weightInNewtons = (weight / 1000) * 9.81 * -1;  // Convert from pounds to kilograms to Newtons
+  float weightInNewtons = (weight / 10000) * 10 * -1;  // Convert from pounds to kilograms to Newtons
   weightInNewtons = floor(weightInNewtons * 10) / 10;
   if (weightInNewtons == 0.0 || weightInNewtons == -0.0 || weightInNewtons == -0.1) {
     weightInNewtons = 0.0;

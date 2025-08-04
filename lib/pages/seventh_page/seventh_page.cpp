@@ -32,6 +32,7 @@ static String serialDataCalibration = "";
 static double forceCalibration = 0.0;
 static float displacementCalibration = 0.0;
 
+
 void seventh_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page_value_address, char key, int &selected_page, float &calibrationFactorOutput)
 {
     // Add this serial data checking
@@ -256,3 +257,5 @@ void seventh_page_ui(U8G2_ST7920_128X64_F_SW_SPI u8g2, int page_value_address, c
     
     u8g2.sendBuffer();
 }
+
+
